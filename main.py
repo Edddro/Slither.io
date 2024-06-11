@@ -11,8 +11,8 @@ import random
 
 pygame.init()
 
-WIDTH = 1000
-HEIGHT = 480
+WIDTH = 700
+HEIGHT = 600
 
 pygame.display.set_caption('Slither.io')
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -38,6 +38,7 @@ LIGHT_GRAY = (200, 200, 200)
 DARK_GRAY = (45,45,45)
 
 FOOD_COLOR = [LIGHT_GREEN, DARK_GREEN, LIGHT_RED, LIGHT_BLUE, DARK_GREEN, YELLOW, LIGHT_PURPLE, LIGHT_PINK, PINK, ORANGE]
+background = pygame.transform.scale(pygame.image.load("./Graphics/background.png").convert_alpha(), (WIDTH, HEIGHT))
 
 class Food(pygame.sprite.Sprite):
     def __init__(self):
@@ -56,12 +57,20 @@ class Food(pygame.sprite.Sprite):
         for segment in snake:
             self.snake_foods.append([segment])
 
+    def move(self):
+        self.foods_move = []
+        for pos in self.foods:
+            self.foods_move.append((pygame.mouse.get_pos() - pygame.math.Vector2(pos)))
+        for i in range(len(self.foods_move)):
+            self.foods[i] += self.foods_move[i] * -0.1
+
     def update(self, x, y):
         self.foods = [food for food in self.foods if food != [x, y]]
         while len(self.foods) < 100:
             self.x = random.randint(0, WIDTH)
             self.y = random.randint(0, HEIGHT)
             self.foods.append([self.x, self.y])
+
     def draw(self, food_type):
         if food_type == 'speed':
             for food in self.speed_foods:
@@ -105,15 +114,15 @@ class Snake(pygame.sprite.Sprite):
         elif direction == "left":
             self.snake.append([x + 10, y])
 
-    def shrink(self, x, y):
+    def shrink(self):
         food = Food()
-        food.speed_foods(x, y)
-        self.snake.remove([x, y])
+        food.speed_foods(self.snake[-1][0], self.snake[-1][1])
+        self.snake.pop()
 
-    def eyes(self, radius, target_x=0, target_y=5):
+    def eyes(self, radius, mouse_x, mouse_y):
         head_x, head_y = self.snake[0]
         distance = radius / 8
-        direction = pygame.math.Vector2(target_x - head_x, target_y - head_y).normalize() * 2
+        direction = pygame.math.Vector2(mouse_x - head_x, mouse_y - head_y).normalize() * 2
 
         if self.direction == "up" or self.direction == "down":
             x_eye_left = 4
@@ -132,59 +141,65 @@ class Snake(pygame.sprite.Sprite):
         pygame.draw.circle(screen, BLACK, (int(head_x + x_eye_left + direction.x), int(head_y + y_eye_left + direction.y)), 2.75)
         pygame.draw.circle(screen, BLACK, (int(head_x + x_eye_right + direction.x), int(head_y + y_eye_right + direction.y)), 2.75)
 
-    def draw(self, radius):
+    def draw(self, radius, speed, mouse_x, mouse_y):
         for i, segment in enumerate(reversed(self.snake)):
             if (i // 3) % 2 == 0:
-                shade_factor = 1 - (i / (len(self.snake) * 3.5))
+                if speed:
+                    shade_factor = 1.0 + (i / (len(self.snake) * 5))
+                else:
+                    shade_factor = 1 - (i / (len(self.snake) * 3.5))
             else:
                 shade_factor = 1
-            color = (int(self.snake_colour[0] * shade_factor), int(self.snake_colour[1] * shade_factor), int(self.snake_colour[2] * shade_factor))
+            if speed:
+                color = (min(int(self.snake_colour[0] * shade_factor), 255), min(int(self.snake_colour[1] * shade_factor), 255), min(int(self.snake_colour[2] * shade_factor), 255))
+            else:
+                color = (int(self.snake_colour[0] * shade_factor), int(self.snake_colour[1] * shade_factor), int(self.snake_colour[2] * shade_factor))
             pygame.draw.circle(screen, color, (int(segment[0]), int(segment[1])), radius)
-        self.eyes(radius)
-def hexagon(x, y, radius):
-    inner_points = []
-    outer_points = []
-    for i in range(6):
-        angle = math.pi / 2 + math.pi / 3 * i
-        hexagon_x = x + radius * math.cos(angle)
-        hexagon_y = y + radius * math.sin(angle)
-        hexagon_outer_x = x + (radius * 1.15) * math.cos(angle)
-        hexagon_outer_y = y + (radius * 1.15) * math.sin(angle)
-        inner_points.append((hexagon_x, hexagon_y))
-        outer_points.append((hexagon_outer_x, hexagon_outer_y))
-    pygame.draw.polygon(screen, BLACK, outer_points)
-    pygame.draw.polygon(screen, DARK_GRAY, inner_points)
-
-def background(height_offset, width_offset):
-    screen.fill(LIGHT_BLACK)
-    radius = 17.5
-    hexagon_width = 0
-    for y in range(-HEIGHT + height_offset, HEIGHT + 35, 40):
-        hexagon_height = 0
-        for x in range(-WIDTH + width_offset, WIDTH + 35, 40):
-            hexagon(x - hexagon_width, y + hexagon_height, radius)
-
-            hexagon_height += radius * math.sin(math.pi / 10)
-        hexagon_width -= 25 * math.cos(math.pi / 3)
+        self.eyes(radius, mouse_x, mouse_y)
 
 def main():
     radius = 10
-    height_offset = 0
-    width_offset = 0
+    speed = False
     score = 0
     high_score = 0
     if score != 0 and score % 800 == 0:
         radius += 2
-    background(height_offset, width_offset)
     food = Food()
     food.draw("normal")
     snake = Snake()
-    snake.draw(radius)
+    snake.draw(radius, speed, mouse_x, mouse_y)
 
+mouse_x, mouse_y = pygame.mouse.get_pos()
+background_x = 0
+background_y = 0
 main()
 run = True
 while run:
-    #main()
+    mouse_x, mouse_y = pygame.mouse.get_pos()
+    if mouse_x < WIDTH / 2:
+        background_x -= 0.1
+    if mouse_x > WIDTH / 2:
+        background_x += 0.1
+    if mouse_y < HEIGHT / 2:
+        background_y -= 0.1
+    if mouse_y > HEIGHT / 2:
+        background_y += 0.1
+
+    screen.fill(BLACK)
+    screen.blit(background, (background_x, background_y))
+    screen.blit(background, (background_x + WIDTH, background_y))
+    screen.blit(background, (background_x, background_y + HEIGHT))
+    screen.blit(background, (background_x + WIDTH, background_y + HEIGHT))
+
+    if background_x <= -WIDTH:
+        background_x = 0
+    if background_x >= 0:
+        background_x = -WIDTH
+    if background_y <= -HEIGHT:
+        background_y = HEIGHT
+    if background_y >= 0:
+        background_y = -HEIGHT
+
     pygame.display.update()
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
