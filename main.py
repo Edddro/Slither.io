@@ -6,7 +6,8 @@ import random
 # Initialization
 pygame.init()
 clock = pygame.time.Clock()
-WIDTH, HEIGHT = 700, 600
+WIDTH = 700
+HEIGHT = 600
 pygame.display.set_caption('Slither.io')
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 
@@ -26,6 +27,7 @@ LIGHT_PINK = (255, 20, 147)
 PINK = (255, 105, 180)
 ORANGE = (255, 165, 0)
 WHITE = (255, 255, 255)
+GRAY = (128, 128, 128)
 BLACK = (0, 0, 0)
 
 FOOD_COLOR = [LIGHT_GREEN, DARK_GREEN, LIGHT_RED, LIGHT_BLUE, YELLOW, LIGHT_PURPLE, LIGHT_PINK, PINK, ORANGE]
@@ -37,10 +39,14 @@ class Food(pygame.sprite.Sprite):
         self.speed_foods = []
         self.snake_foods = []
         self.colours = []
-        for _ in range(50):
-            self.x = random.randint(0, WIDTH)
-            self.y = random.randint(0, HEIGHT)
+        self.foods_move = []
+        self.snake_foods_move = []
+        self.speed_foods_move = []
+        for _ in range(500):
+            self.x = random.randint(-WIDTH, WIDTH * 2)
+            self.y = random.randint(-HEIGHT, HEIGHT * 2)
             self.foods.append([self.x, self.y])
+            self.foods_move.append([0, 0])
             self.colours.append(random.choice(FOOD_COLOR))
 
     def speed_food(self, x, y):
@@ -50,17 +56,19 @@ class Food(pygame.sprite.Sprite):
         for segment in snake:
             self.snake_foods.append([segment])
 
-    def move(self):
-        self.foods_move = []
-        self.snake_foods_move = []
-        self.speed_foods_move = []
-        for pos in self.foods:
-            self.foods_move.append((pygame.mouse.get_pos() - pygame.math.Vector2(pos)))
-        for i in range(len(self.foods_move)):
-            self.foods[i] += self.foods_move[i] * -0.01
+    def move(self, snake_dx, snake_dy):
+        for i in range(len(self.foods)):
+            velocity_x = -1.5 * snake.dx
+            velocity_y = -1.5 * snake.dy
 
-            if self.foods[i][0] < 0 or self.foods[i][0] > WIDTH or self.foods[i][1] < 0 or self.foods[i][1] > HEIGHT:
-                self.update(self.foods[i][0], self.foods[i][1])
+            self.foods_move[i][0] += (velocity_x - self.foods_move[i][0]) * 0.01
+            self.foods_move[i][1] += (velocity_y - self.foods_move[i][1]) * 0.01
+            self.foods[i][0] += self.foods_move[i][0]
+            self.foods[i][1] += self.foods_move[i][1]
+
+            # if self.foods[i][0] > WIDTH or self.foods[i][0] < 0 or self.foods[i][1] > 0 or self.foods[i][1] > HEIGHT:
+            #     self.update(self.foods[i][0], self.foods[i][1])
+
         for pos in self.snake_foods:
             self.snake_foods_move((pygame.mouse.get_pos() - pygame.math.Vector2(pos)))
         for i in range(len(self.snake_foods_move)):
@@ -75,12 +83,14 @@ class Food(pygame.sprite.Sprite):
             if self.foods[i] == [x, y]:
                 self.foods.pop(i)
                 self.colours.pop(i)
+                self.foods_move.pop(i)
                 break
-        while len(self.foods) < 50:
-            self.x = random.randint(0, WIDTH)
-            self.y = random.randint(0, HEIGHT)
+        while len(self.foods) < 500:
+            self.x = random.randint(-WIDTH, WIDTH * 2)
+            self.y = random.randint(-HEIGHT, HEIGHT * 2)
             self.foods.append([self.x, self.y])
             self.colours.append(random.choice(FOOD_COLOR))
+            self.foods_move.append([0, 0])
 
     def draw(self, food_type):
         if food_type == 'speed':
@@ -108,10 +118,10 @@ class Snake:
         head_x, head_y = self.snake[0]
         mouse_x, mouse_y = pygame.mouse.get_pos()
         angle = math.atan2(mouse_y - HEIGHT // 2, mouse_x - WIDTH // 2)
-        dx = 8 * math.cos(angle)
-        dy = 8 * math.sin(angle)
+        self.dx = 8 * math.cos(angle)
+        self.dy = 8 * math.sin(angle)
 
-        new_head = [head_x + dx, head_y + dy]
+        new_head = [head_x + self.dx, head_y + self.dy]
         self.snake = [new_head] + self.snake[:-1]
 
         offset_x = WIDTH // 2 - head_x
@@ -144,10 +154,8 @@ class Snake:
         pygame.draw.circle(screen, WHITE, (int(x_eye_left), int(y_eye_left)), 4)
         pygame.draw.circle(screen, WHITE, (int(x_eye_right), int(y_eye_right)), 4)
 
-        pygame.draw.circle(screen, BLACK,
-                           (int(x_eye_left + 2 * math.cos(angle)), int(y_eye_left + 2 * math.sin(angle))), 2)
-        pygame.draw.circle(screen, BLACK,
-                           (int(x_eye_right + 2 * math.cos(angle)), int(y_eye_right + 2 * math.sin(angle))), 2)
+        pygame.draw.circle(screen, BLACK, (int(x_eye_left + 2 * math.cos(angle)), int(y_eye_left + 2 * math.sin(angle))), 2)
+        pygame.draw.circle(screen, BLACK, (int(x_eye_right + 2 * math.cos(angle)), int(y_eye_right + 2 * math.sin(angle))), 2)
 
     def draw(self, radius, speed):
         for i, segment in enumerate(self.snake):
@@ -159,16 +167,13 @@ class Snake:
             else:
                 shade_factor = 1
             if speed:
-                color = (
-                min(int(self.snake_colour[0] * shade_factor), 255), min(int(self.snake_colour[1] * shade_factor), 255),
-                min(int(self.snake_colour[2] * shade_factor), 255))
+                color = (min(int(self.snake_colour[0] * shade_factor), 255), min(int(self.snake_colour[1] * shade_factor), 255), min(int(self.snake_colour[2] * shade_factor), 255))
             else:
-                color = (int(self.snake_colour[0] * shade_factor), int(self.snake_colour[1] * shade_factor),
-                         int(self.snake_colour[2] * shade_factor))
+                color = (int(self.snake_colour[0] * shade_factor), int(self.snake_colour[1] * shade_factor), int(self.snake_colour[2] * shade_factor))
             pygame.draw.circle(screen, color, (int(segment[0]), int(segment[1])), radius)
         self.eyes(radius)
 
-def check_collision(snake, food):
+def food_eaten(snake, food):
     head_x, head_y = snake.snake[0]
     for i in range(len(food.foods)):
         food_x, food_y = food.foods[i]
@@ -176,21 +181,29 @@ def check_collision(snake, food):
             return i
     return -1
 
-# Main game loop
-mouse_x, mouse_y = pygame.mouse.get_pos()
+def map():
+    map_rect = pygame.Rect(WIDTH - 150, HEIGHT - 150, 100, 100)
+    pygame.draw.rect(screen, GRAY, map_rect, 1)
+    map_x = (snake_width + WIDTH) / (WIDTH * 2) * 100 + map_rect.left
+    map_y = (snake_height + HEIGHT) / (HEIGHT * 2) * 100 + map_rect.top
+    map_x = max(map_rect.left + 5, min(map_rect.right - 15, map_x))
+    map_y = max(map_rect.top + 5, min(map_rect.bottom - 15, map_y))
+    pygame.draw.circle(screen, WHITE, (int(map_x), int(map_y)), 5)
+
 radius = 10
 speed = False
-score = 0
+length = 10
 high_score = 0
 food = Food()
 snake = Snake()
 background_x = 0
 background_y = 0
+snake_width = 0
+snake_height = 0
 run = True
 
 while run:
-    clock.tick(15)
-
+    clock.tick(60)
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
@@ -198,16 +211,20 @@ while run:
 
     mouse_x, mouse_y = pygame.mouse.get_pos()
     if mouse_x < WIDTH / 2:
-        background_x -= 3
+        background_x += 1.5
+        snake_width -= 1
     if mouse_x > WIDTH / 2:
-        background_x += 3
+        background_x -= 1.5
+        snake_width += 1
     if mouse_y < HEIGHT / 2:
-        background_y -= 3
+        background_y += 1.5
+        snake_height -= 1
     if mouse_y > HEIGHT / 2:
-        background_y += 3
+        background_y -= 1.5
+        snake_height += 1
 
     screen.fill(BLACK)
-    
+
     for i in range(-1, 2):
         for j in range(-1, 2):
             screen.blit(background, (background_x + i * WIDTH, background_y + j * HEIGHT))
@@ -215,18 +232,28 @@ while run:
     food.draw("normal")
     snake.move()
     snake.draw(radius, speed)
-    food.move()
+    food.move(snake.dx, snake.dy)
+    map()
 
-    # Check collision with food
-    food_index = check_collision(snake, food)
+    if snake_width < -WIDTH:
+        pygame.draw.rect(screen, RED, (0, 0, 20 + (abs(snake_width) - WIDTH), HEIGHT))
+    if snake_width > WIDTH * 2:
+        pygame.draw.rect(screen, RED, (WIDTH - 20 - (abs(snake_width) - WIDTH * 2), 0, 20 + (abs(snake_width) - WIDTH * 2), HEIGHT))
+    if snake_height < -HEIGHT:
+        pygame.draw.rect(screen, RED, (0, 0, WIDTH, 20 + (abs(snake_height) - HEIGHT)))
+    if snake_height > HEIGHT * 2:
+        pygame.draw.rect(screen, RED, (0, HEIGHT - 20 - (abs(snake_height) - HEIGHT * 2), WIDTH, 20 + (abs(snake_height) - HEIGHT * 2)))
+
+    food_index = food_eaten(snake, food)
     if food_index != -1:
         snake.grow()
         food.update(food.foods[food_index][0], food.foods[food_index][1])
-        score += 10
+        length += 2
+        if length != 10 and length % 800 == 0:
+            radius += 1.2
 
     pygame.display.update()
 
-    # Reset background position to create an infinite scrolling effect
     if background_x <= -WIDTH:
         background_x = 0
     if background_x >= WIDTH:
